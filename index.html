@@ -588,14 +588,16 @@ function vClasses(){
   const ids=Object.values(S.classes).sort((a,b)=>a.nom.localeCompare(b.nom,'fr')); const conf=S.confirm; const ed=S.editClass&&S.classes[S.editClass];
   return `${ed?`<section class="panel"><div class="row"><h2 style="flex:1">${esc(ed.nom)}${exBadge(ed)}</h2><button class="btn" data-act="closeedit">Fermer</button></div>
     <div class="row" style="align-items:flex-end"><label class="field" style="flex:1;min-width:200px"><span class="lab">Nom de la classe</span><input type="text" id="e-nom" value="${esc(ed.nom)}"></label><button class="btn" data-act="rename">Renommer</button></div>
-    <div class="row" style="align-items:flex-end"><label class="field" style="flex:1;min-width:200px"><span class="lab">Ajouter des élèves (un par ligne)</span><textarea id="e-add" placeholder="NOM Prénom"></textarea></label><button class="btn" data-act="addst">Ajouter</button></div>
+    <div class="row" style="align-items:flex-end"><div class="field" style="flex:1;min-width:200px"><span class="lab">Ajouter des élèves (un par ligne, ou fichier CSV)</span><textarea id="e-add" placeholder="NOM Prénom"></textarea>
+      <div class="row"><label class="btn small" for="f-csv-e" style="display:inline-flex;align-items:center">Importer un fichier CSV</label><input type="file" id="f-csv-e" data-target="e-add" accept=".csv,.txt,text/csv,text/plain" hidden><span class="mini muted" id="csvmsg-e-add"></span></div></div><button class="btn" data-act="addst">Ajouter</button></div>
     <div class="row" style="align-items:flex-end"><label class="field" style="flex:1;min-width:200px"><span class="lab">Boutons de signalement (séparés par des virgules)</span><input type="text" id="e-flags" value="${esc(flagsOf(ed).join(', '))}"></label><button class="btn" data-act="setflags">Enregistrer</button></div>
     <p class="mini muted">Groupes : G1 = ${(ed.eleves||[]).filter(e=>e.groupe===1).length} élèves · G2 = ${(ed.eleves||[]).filter(e=>e.groupe===2).length} · sans groupe = ${(ed.eleves||[]).filter(e=>!e.groupe).length}. Une séance en groupe n’affiche que les élèves de ce groupe ; elle ne compte pas dans le profil des autres.</p>
     <div class="list">${sortedStudents(ed).map(e=>`<div class="litem"><span class="grow">${esc(e.nom)}</span><span class="seg" style="width:210px" role="group" aria-label="Groupe">${[[0,'Aucun'],[1,'Groupe 1'],[2,'Groupe 2']].map(([g,t])=>`<button class="chip c-ok" data-act="grp" data-g="${g}" data-sid="${e.id}" aria-pressed="${(e.groupe||0)===g}">${t}</button>`).join('')}</span>${conf==='st-'+e.id?`<span class="confirm">Retirer cet élève ? <button class="btn small danger" data-act="delst" data-sid="${e.id}">Retirer</button><button class="btn small" data-act="cancel">Annuler</button></span>`:`<button class="btn small" data-act="ask" data-id="st-${e.id}">Retirer</button>`}</div>`).join('')}</div></section>`:''}
   <section class="panel"><h2>Nouvelle classe</h2>
     <div class="row" style="align-items:flex-start">
       <label class="field" style="width:200px"><span class="lab">Nom</span><input type="text" id="c-nom" placeholder="1re Spé 3"></label>
-      <label class="field" style="flex:1;min-width:220px"><span class="lab">Élèves, un par ligne (copier-coller depuis Pronote)</span><textarea id="c-eleves" style="min-height:120px" placeholder="DUPONT Léa&#10;HOARAU Kévin&#10;…"></textarea></label></div>
+      <div class="field" style="flex:1;min-width:220px"><span class="lab">Élèves, un par ligne, ou fichier CSV de Pronote</span><textarea id="c-eleves" style="min-height:120px" placeholder="DUPONT Léa&#10;HOARAU Kévin&#10;…"></textarea>
+        <div class="row"><label class="btn small" for="f-csv-c" style="display:inline-flex;align-items:center">Importer un fichier CSV</label><input type="file" id="f-csv-c" data-target="c-eleves" accept=".csv,.txt,text/csv,text/plain" hidden><span class="mini muted" id="csvmsg-c-eleves">Seuls les noms et prénoms sont gardés.</span></div></div></div>
     <div><button class="btn pri" data-act="newclass">Créer la classe</button></div></section>
   ${backupPanel()}
   <section class="panel"><h3>Vos classes</h3>${ids.length?`<div class="list">${ids.map(c=>`<div class="litem"><div class="grow"><b>${esc(c.nom)}</b>${exBadge(c)}<div class="mini muted">${(c.eleves||[]).length} élèves · ${classSeances(c.id).length} séances</div></div>
@@ -603,7 +605,34 @@ function vClasses(){
 }
 
 /* ---------- Actions ---------- */
-const parseNames=t=>t.split(/\n+/).map(x=>x.replace(/\t/g,' ').trim()).filter(Boolean).map(nom=>({id:uid(),nom}));
+function parseRows(text){
+  const lines=text.replace(/^﻿/,'').split(/\r?\n/).filter(l=>l.trim());if(!lines.length)return[];
+  const sample=lines.slice(0,5).join('\n');const d=sample.includes('\t')?'\t':((sample.match(/;/g)||[]).length>=(sample.match(/,/g)||[]).length&&sample.includes(';'))?';':sample.includes(',')&&lines.every(l=>l.includes(','))?',':null;
+  if(!d)return lines.map(l=>[l.trim()]);
+  return lines.map(l=>{const out=[];let cur='',q=false;for(let i=0;i<l.length;i++){const ch=l[i];
+    if(q){if(ch==='"'&&l[i+1]==='"'){cur+='"';i++}else if(ch==='"')q=false;else cur+=ch}
+    else if(ch==='"')q=true;else if(ch===d){out.push(cur.trim());cur=''}else cur+=ch}
+    out.push(cur.trim());return out});
+}
+const normH=x=>String(x||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim();
+function namesFromTable(text){
+  const rows=parseRows(text);if(!rows.length)return[];
+  const h=rows[0].map(normH);
+  const iFull=h.findIndex(x=>x==='eleve'||x==='eleves'||x==='nom et prenom'||x==='nom prenom'||x==='nom prenoms'||x==='nom et prenoms');
+  const iPre=h.findIndex(x=>/^prenom/.test(x));
+  const iNom=h.findIndex(x=>x==='nom'||x==='nom de famille'||x==='nom d usage'||(x.startsWith('nom')&&!x.includes('prenom')));
+  let body=rows,get;
+  if(iFull>=0){body=rows.slice(1);get=r=>r[iFull]}
+  else if(iNom>=0&&iPre>=0){body=rows.slice(1);get=r=>[r[iNom],r[iPre]].filter(Boolean).join(' ')}
+  else if(iNom>=0){body=rows.slice(1);get=r=>r[iNom]}
+  else get=r=>r.filter(Boolean).slice(0,r.length>1&&r.filter(Boolean).length>1?2:1).join(' ');
+  const seen=new Set();
+  return body.map(r=>String(get(r)||'').replace(/\s+/g,' ').trim()).filter(n=>n&&!/^\d+$/.test(n)&&!seen.has(n)&&seen.add(n));
+}
+const parseNames=t=>namesFromTable(t).map(nom=>({id:uid(),nom}));
+function readTextFile(file,cb){
+  const r=new FileReader();r.onload=()=>{const t=String(r.result);if(t.includes('\ufffd')){const r2=new FileReader();r2.onload=()=>cb(String(r2.result));r2.readAsText(file,'windows-1252')}else cb(t)};r.readAsText(file,'utf-8');
+}
 function obsMut(sid){const s=S.seances[S.seanceId];s.obs=s.obs||{};s.obs[sid]=s.obs[sid]||{};return [s,s.obs[sid]]}
 document.addEventListener('click',ev=>{
   const b=ev.target.closest('[data-act]'); if(!b||b.tagName==='SELECT'||b.tagName==='TEXTAREA')return;
@@ -671,6 +700,8 @@ document.addEventListener('click',ev=>{
 });
 document.addEventListener('keydown',ev=>{if((ev.key==='Enter'||ev.key===' ')&&ev.target.matches('tr[data-act]')){ev.preventDefault();ev.target.click()}});
 document.addEventListener('change',ev=>{const t=ev.target;
+  if(t.dataset&&t.dataset.target&&t.type==='file'){const f=t.files&&t.files[0];const ta=$(t.dataset.target);const msg=$('csvmsg-'+t.dataset.target);t.value='';if(!f||!ta)return;
+    readTextFile(f,txt=>{const n=namesFromTable(txt);if(!n.length){if(msg)msg.textContent='Aucun nom trouvé dans ce fichier.';return}ta.value=n.join('\n');if(msg)msg.textContent=n.length+' élèves lus. Vérifiez la liste puis validez.'});return}
   if(t.id==='f-restore'){if(t.files&&t.files[0])importBackup(t.files[0]);t.value='';return}
   if(t.dataset.form){S.form[t.dataset.form]=t.value;if(t.id==='f-chap'){S.pick=[];render()}return}
   if(t.id==='sel-chap'){S.chapId=t.value;S.chStudent=null;render()}

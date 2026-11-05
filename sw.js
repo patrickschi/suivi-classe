@@ -2,7 +2,7 @@
 // des fichiers de l'application (jamais de données d'élèves, qui restent dans l'iPad).
 // Ouverture : la copie locale s'affiche tout de suite ; si internet est disponible,
 // la dernière version est téléchargée en arrière-plan et sera utilisée à la prochaine ouverture.
-const CACHE='carnet-suivi-v6';
+const CACHE='carnet-suivi-v7';
 const FILES=['./','index.html','manifest.json','icon-180.png','icon-512.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
