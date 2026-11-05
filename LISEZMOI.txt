@@ -1,0 +1,27 @@
+CARNET DE SUIVI EN CLASSE - VERSION HORS LIGNE
+
+Ce dossier contient l'application, sans aucune donnée d'élève.
+Les noms et observations que vous saisissez restent uniquement dans l'iPad :
+l'application n'envoie rien sur internet (aucun serveur, aucun compte).
+
+INSTALLATION (une seule fois, avec internet)
+1. Déposez les 6 fichiers de ce dossier, tels quels, sur un site en https
+   (votre site de classe, GitHub Pages, Netlify...).
+2. Sur l'iPad, ouvrez l'adresse dans Safari.
+3. Partager > Sur l'écran d'accueil > Ajouter.
+4. Ouvrez une fois l'application depuis l'icône.
+Ensuite, elle fonctionne en mode avion.
+
+PARTAGE AVEC DES COLLÈGUES
+Chaque personne qui ouvre l'adresse obtient sa propre application, vide.
+Les données restent sur l'iPad de chacun : personne ne voit celles des autres,
+pas même le propriétaire du site.
+
+MISES À JOUR
+Remplacez les fichiers sur le site. Chaque iPad télécharge la nouvelle version
+dès qu'il a internet, et l'utilise à l'ouverture suivante. Les données sont conservées.
+
+SAUVEGARDE
+Onglet Classes > Créer une sauvegarde : un fichier .json est enregistré
+(rangez-le dans l'app Fichiers). Restaurer une sauvegarde le recharge.
+Attention : supprimer l'icône de l'écran d'accueil efface les données.
